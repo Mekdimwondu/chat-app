@@ -1,9 +1,10 @@
 import express from "express";
-import { logIn, logOut, signUp } from "../controller/auth.controller";
+// import { signUp, logIn, logOut } from "../controller/auth.controller";
+const { logIn, logOut, signUp } = require("../controller/auth.controller");
 const authRoutes = express.Router();
 
 authRoutes.post("/signup", signUp);
-authRoutes.post("/login", logIn);
+authRoutes.get("/login", logIn);
 authRoutes.post("/logout", logOut);
 
 export default authRoutes;
