@@ -2,7 +2,6 @@ import { Request, Response } from "express";
 import prisma from "../db/prisma";
 import bcrypt from "bcryptjs";
 import generateToken from "../utils/generateToken";
-import { promises } from "dns";
 
 export const signUp = async (req: Request, res: Response): Promise<any> => {
   try {
@@ -60,26 +59,76 @@ export const signUp = async (req: Request, res: Response): Promise<any> => {
 export const logIn = async (req: Request, res: Response): Promise<any> => {
   try {
     const { username, password } = req.body;
+
+    // Check if username or password is missing
     if (!username || !password) {
-      res.status(400).json({ error: "Please fill in all fields" });
+      return res.status(400).json({ error: "Please fill in all fields" });
     }
+
+    // Find the user from the database
     const user = await prisma.user.findUnique({ where: { username } });
+
+    // If user is not found
     if (!user) {
       return res.status(400).json({ error: "Invalid credentials" });
     }
+
+    // Check if the password is correct
     const isPasswordCorrect = await bcrypt.compare(password, user.password);
     if (!isPasswordCorrect) {
-      res.status(400).json({ error: "Incorrect Password" });
+      return res.status(400).json({ error: "Incorrect Password" });
     }
-    generateToken(user.id, res);
-    res.status(200).json({
+
+    // Generate and send token
+    generateToken(user.id, res); // Make sure this function is working correctly
+
+    // Send user data (Do not send the password back)
+    return res.status(200).json({
       id: user.id,
       fullName: user.fullName,
       username: user.username,
       profilePic: user.profilePic,
     });
   } catch (error: any) {
-    res.status(500).json({ message: "Internal server error", error });
+    // Log the error with a detailed message
+    console.error("Error during login:", error); // This will log the entire error object
+
+    // If error has a message, log it and return the message
+    if (error.message) {
+      console.error("Error message:", error.message);
+    }
+
+    // Return a generic server error (do not expose internal error details)
+    return res.status(500).json({ message: "Internal server error" });
   }
 };
-export const logOut = async (req: Request, res: Response): Promise<any> => {};
+export const logOut = async (req: Request, res: Response): Promise<any> => {
+  try {
+    res.cookie("jwt", "", { maxAge: 0 });
+    res.status(200).json({ message: "logged out successfuly" });
+  } catch (error) {
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+export const getMe = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: {
+        id: req.user.id,
+      },
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+    res.status(200).json({
+      id: user.id,
+      fullName: user.fullName,
+      username: user.username,
+      profilePic: user.profilePic,
+      gender: user.gender,
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
