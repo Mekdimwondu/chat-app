@@ -2,8 +2,9 @@ import { Request, Response } from "express";
 import prisma from "../db/prisma";
 import bcrypt from "bcryptjs";
 import generateToken from "../utils/generateToken";
+import { promises } from "dns";
 
-export const signUp = async (req: Request, res: Response) => {
+export const signUp = async (req: Request, res: Response): Promise<any> => {
   try {
     const { fullName, username, password, confirmPassword, gender } = req.body;
 
@@ -57,6 +58,28 @@ export const signUp = async (req: Request, res: Response) => {
   }
 };
 export const logIn = async (req: Request, res: Response): Promise<any> => {
-  res.send("login");
+  try {
+    const { username, password } = req.body;
+    if (!username || !password) {
+      res.status(400).json({ error: "Please fill in all fields" });
+    }
+    const user = await prisma.user.findUnique({ where: { username } });
+    if (!user) {
+      return res.status(400).json({ error: "Invalid credentials" });
+    }
+    const isPasswordCorrect = await bcrypt.compare(password, user.password);
+    if (!isPasswordCorrect) {
+      res.status(400).json({ error: "Incorrect Password" });
+    }
+    generateToken(user.id, res);
+    res.status(200).json({
+      id: user.id,
+      fullName: user.fullName,
+      username: user.username,
+      profilePic: user.profilePic,
+    });
+  } catch (error: any) {
+    res.status(500).json({ message: "Internal server error", error });
+  }
 };
 export const logOut = async (req: Request, res: Response): Promise<any> => {};
